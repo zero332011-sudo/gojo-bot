@@ -39,27 +39,29 @@ async function startGojoBot() {
                 creds: state.creds,
                 keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'silent' })),
             },
-            browser: ["Ubuntu", "Chrome", "20.0.04"]
+            browser: ["Chrome (Linux)", "Chrome", "20.0.04"]
         });
 
         if (!sock.authState.creds.registered) {
             setTimeout(async () => {
                 try {
                     let phoneNumber = BOT_PHONE.replace(/[^0-9]/g, '');
+                    console.log(`[i] جاري طلب كود الربط لرقم الهاتف: ${phoneNumber}...`);
                     let code = await sock.requestPairingCode(phoneNumber);
                     console.log(`\n========================================`);
                     console.log(`[!] كود ربط بوت Gojo الخاص بك هو: \x1b[32m${code}\x1b[0m`);
                     console.log(`========================================\n`);
                 } catch (err) {
-                    console.error("خطأ أثناء طلب كود الربط:", err);
+                    console.error("خطأ أثناء طلب كود الربط، يرجى إعادة التشغيل:", err);
                 }
-            }, 10000);
+            }, 5000);
         }
 
         sock.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect } = update;
             if (connection === 'close') {
                 const shouldReconnect = (lastDisconnect.error instanceof Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
+                console.log('انقطع الاتصال، جاري إعادة المحاولة...', lastDisconnect.error);
                 if (shouldReconnect) {
                     setTimeout(() => startGojoBot(), 5000);
                 }
@@ -69,7 +71,7 @@ async function startGojoBot() {
         });
 
         sock.ev.on('creds.update', saveCreds);
-        sock.ev.on('messages.upsert', async (chatUpdate) => {
+                sock.ev.on('messages.upsert', async (chatUpdate) => {
             try {
                 const mek = chatUpdate.messages[0];
                 if (!mek.message) return;
@@ -77,7 +79,6 @@ async function startGojoBot() {
                 const from = mek.key.remoteJid;
                 const sender = mek.key.participant || from;
                 
-                // استثناء كامل للمطور ورقم البوت من فلتر الشتايم والإنذارات
                 const isDev = sender.includes(DEVELOPER_PHONE) || sender.includes(DEVELOPER_ID) || sender.includes(BOT_PHONE);
                 const isBot = mek.key.fromMe || sender.includes(BOT_PHONE);
 
@@ -102,7 +103,6 @@ async function startGojoBot() {
                     return;
                 }
 
-                // تطبيق فلتر الشتايم على المستخدمين العاديين فقط واستثناء البوت والمطورين تماماً
                 if (!isDev && !isBot) {
                     let isOffensive = false;
                     if (body) {
@@ -330,5 +330,5 @@ async function startGojoBot() {
     }
 }
 
-startGojoBot();        
-                
+startGojoBot();
+                                                   
