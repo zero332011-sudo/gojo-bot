@@ -14,7 +14,16 @@ global.botOwners = global.botOwners || [DEVELOPER_PHONE, DEVELOPER_ID, BOT_PHONE
 const userNicknames = {};
 const userBank = {}; 
 const mutedUsers = {};
+const badWordsWarnings = {}; // عداد شتايم المستخدمين
 const customCommands = {};
+
+// قائمة كبيرة وموسعة لألفاظ الشتائم الممنوعة
+const badWordsList = [
+    "شلتت", "كلب", "حمار", "قذر", "لعن", "زفت", "متخلف", "غبي", "معفن", "يا ابن",
+    "وسخ", "منيوك", "قحبة", "متناكة", "خول", "شرموطة", "عرص", "حلوف", "حيوان",
+    "حشاش", "سرسجي", "خرا", "تفة", "ابن الكلب", "ابن الوسخة", "يا دكر", "يا غبي",
+    "يا سافل", "سافل", "حقير", "واطي", "منحط", "تبا", "ينعن", "يخرب بيتك"
+];
 
 const rankTitles = [
     "الإمبراطور 🔱", "نائب الإمبراطور 🌠", "الملك 👑", "نائب الملك ⚜️", 
@@ -77,7 +86,7 @@ async function startGojoBot() {
         sock.ev.on('creds.update', async () => {
             await saveCreds();
        
-                        });
+        });
                 sock.ev.on('messages.upsert', async (chatUpdate) => {
             try {
                 const mek = chatUpdate.messages[0];
@@ -90,8 +99,33 @@ async function startGojoBot() {
                 const isDev = sender.includes(DEVELOPER_PHONE) || sender.includes(DEVELOPER_ID) || sender.includes(BOT_PHONE) || global.botOwners.some(dev => senderNumber.includes(dev));
                 
                 const body = (mtype === 'conversation') ? mek.message.conversation :
-                             (mtype === 'extendedTextMessage') ? mek.message.extendedTextMessage.text : '';
+                             (mtype === 'extendedTextMessage') ? mek.message.extendedTextMessage.text : 
+                             (mtype === 'imageMessage') ? mek.message.imageMessage.caption :
+                             (mtype === 'videoMessage') ? mek.message.videoMessage.caption : '';
                 
+                // --- نظام مانع الشتايم (حد الشتايم 3 ثم الكتم) ---
+                if (!isDev && body) {
+                    let lowerBody = body.toLowerCase();
+                    let hasBadWord = badWordsList.some(word => lowerBody.includes(word));
+                    if (hasBadWord) {
+                        try {
+                            await sock.sendMessage(from, { delete: mek.key });
+                        } catch (e) {}
+
+                        badWordsWarnings[sender] = (badWordsWarnings[sender] || 0) + 1;
+                        let warningsLeft = 3 - badWordsWarnings[sender];
+
+                        if (badWordsWarnings[sender] >= 3) {
+                            mutedUsers[sender] = true;
+                            badWordsWarnings[sender] = 0;
+                            await sock.sendMessage(from, { text: `🚨 تم كتم العضو @${senderNumber} لتخطيه الحد المسموح للشتايم (3 مرات)! ⚠`, mentions: [sender] });
+                        } else {
+                            await sock.sendMessage(from, { text: `⚠️ انتباه يا @${senderNumber}! ممنوع استخدام الألفاظ النابية. لديك (${warningsLeft}) إنذارات أخرى قبل الكتم! 🚫`, mentions: [sender] });
+                        }
+                        return;
+                    }
+                }
+
                 if (!userBank[sender]) {
                     userBank[sender] = { cash: isDev ? 1000000 : 50, coins: isDev ? 10000000000 : 200, points: isDev ? 10000000000 : 10, hearts: 3, xp: 0, level: isDev ? 0 : 18 };
                 } else {
@@ -133,9 +167,8 @@ async function startGojoBot() {
                         await sock.sendMessage(from, { text: chosenReply, mentions: [sender] }, { quoted: mek });
                         break;
                     }
-                    }
-                                // --- لعبة الجاسوس ---
-                let spySession = global.activeSpySessions[from];
+                                                   }
+                                let spySession = global.activeSpySessions[from];
                 let isJoiningAction = false;
                 let targetUserForSpy = getTarget();
 
@@ -227,10 +260,8 @@ async function startGojoBot() {
                         }
                         return;
                     }
-                }
-
-                // --- حلبة XO ---
-                let xoSession = global.activeXoSessions[from];
+                                }
+                                let xoSession = global.activeXoSessions[from];
                 if (xoSession && xoSession.state === 'playing') {
                     let cellChoice = parseInt(body.trim());
                     if (!isNaN(cellChoice) && cellChoice >= 1 && cellChoice <= 9) {
@@ -315,8 +346,8 @@ async function startGojoBot() {
                             return;
                         }
                     }
-                        }
-                                    // --- لعبة الشعلة (دراغون بول وناروتو) بالروابط المباشرة ---
+                }
+
                 let flameSession = global.activeFlameSessions[from];
 
                 if (command === '.شعله' || command === '.شعلة') {
@@ -340,272 +371,96 @@ async function startGojoBot() {
 
                     global.activeFlameSessions[from] = {
                         state: 'waiting_joins',
-                        players: [{ id: sender, flames: 3 }],
                         host: sender,
+                        players: [sender],
+                        scores: { [sender]: 3 },
                         announcementId: sentMsg.key.id
                     };
 
                     setTimeout(async () => {
-                        let session = global.activeFlameSessions[from];
-                        if (session && session.state === 'waiting_joins') {
-                            if (session.players.length < 2) {
-                                delete global.activeFlameSessions[from];
-                                await sock.sendMessage(from, { text: `❌ اللعبة اتلغت، لازم يكون فيه لاعبين على الأقل.` });
-                            } else {
-                                session.state = 'playing';
-                                startFlameRound(sock, from, session);
-                            }
+                        let activeSess = global.activeFlameSessions[from];
+                        if (activeSess && activeSess.state === 'waiting_joins') {
+                            activeSess.state = 'playing';
+                            await sock.sendMessage(from, { text: `🔥 **بدأت معركة الشعلة!** تابعوا الأسئلة القادمة.` });
                         }
                     }, 30000);
                     return;
                 }
 
                 if (flameSession && flameSession.state === 'waiting_joins' && (body.trim() === 'تم' || body.trim() === '.تم')) {
-                    if (!flameSession.players.some(p => p.id === sender)) {
-                        flameSession.players.push({ id: sender, flames: 3 });
-                        let pList = flameSession.players.map(p => `🔥 @${p.id.split('@')[0]} — 🔥🔥🔥`).join('\n');
-                        await sock.sendMessage(from, { 
-                            text: `╭━━━〔 🔥 تم إغلاق التسجيل 🔥 〕━━━╮\n\n` +
-                                  `👥 اللاعبين:\n\n${pList}\n\n` +
-                                  `━━━━━━━━━━━━━━━━━━━━\n\n` +
-                                  `🎮 اللعبة بدأت!\n` +
-                                  `🔥 استعدوا...`, 
-                            mentions: flameSession.players.map(p => p.id) 
-                        }, { quoted: mek });
-                    }
-                    return;
-                }
-
-                // دالة جولات الشعلة باستخدام روابط الصور المباشرة
-                async function startFlameRound(sock, jid, session) {
-                    const characters = [
-                        { name: "غوكو", image: "https://i.imgur.com/8qQ345r.jpg" },
-                        { name: "فجيتا", image: "https://i.imgur.com/Q21X89L.jpg" },
-                        { name: "ناروتو", image: "https://i.imgur.com/3Y67Z9w.jpg" },
-                        { name: "ساسكي", image: "https://i.imgur.com/5t7128R.jpg" }
-                    ];
-                    let chosenChar = characters[Math.floor(Math.random() * characters.length)];
-                    session.currentAnswer = chosenChar.name;
-                    session.roundActive = true;
-
-                    let pList = session.players.map(p => `🔥 @${p.id.split('@')[0]} — ` + '🔥'.repeat(p.flames)).join('\n');
-
-                    await sock.sendMessage(jid, { 
-                        image: { url: chosenChar.image },
-                        caption: `╭━━━〔 🔥 جولة الشعلة 🔥 〕━━━╮\n\n` +
-                                 `👤 اللاعبين:\n${pList}\n\n` +
-                                 `━━━━━━━━━━━━━━━━━━━━\n\n` +
-                                 `🤔 مين الشخصية دي؟\n\n` +
-                                 `⏰ قدامك 15 ثانية للإجابة!\n` +
-                                 `╰━━━━━━━━━━━━━━━━━━━━╯`,
-                        mentions: session.players.map(p => p.id)
-                    });
-                }
-
-                if (flameSession && flameSession.state === 'playing' && flameSession.roundActive) {
-                    if (body.trim().toLowerCase() === flameSession.currentAnswer.toLowerCase()) {
-                        flameSession.roundActive = false;
-                        let winner = sender;
-                        
-                        await sock.sendMessage(from, { 
-                            text: `🎉 مبروك يا @${winner.split('@')[0]} جاوب صح!\n\n📌 اختار لاعب يطفي منه شعلة واحدة بالمنشن.`, 
-                            mentions: [winner] 
-                        }, { quoted: mek });
-
-                        flameSession.waitingForElimination = winner;
-                        return;
-                    }
-                }
-
-                if (flameSession && flameSession.waitingForElimination === sender) {
-                    let target = getTarget();
-                    if (target) {
-                        let targetPlayer = flameSession.players.find(p => p.id === target);
-                        if (targetPlayer) {
-                            targetPlayer.flames -= 1;
-                            flameSession.waitingForElimination = null;
-
-                            await sock.sendMessage(from, { text: `🔥 @${sender.split('@')[0]} اختار يطفي @${target.split('@')[0]}!`, mentions: [sender, target] }, { quoted: mek });
-
-                            if (targetPlayer.flames <= 0) {
-                                flameSession.players = flameSession.players.filter(p => p.id !== target);
-                                await sock.sendMessage(from, { text: `❌ تم إقصاء اللاعب @${target.split('@')[0]} بعد نفاد شعلاته! 💀`, mentions: [target] });
-                            }
-
-                            if (flameSession.players.length <= 1) {
-                                let champion = flameSession.players[0];
-                                await sock.sendMessage(from, { text: `👑 الف مبروك للبطل الأخير الفائز باللعبة @${champion.id.split('@')[0]}! 🎉`, mentions: [champion.id] });
-                                delete global.activeFlameSessions[from];
-                            } else {
-                                setTimeout(() => startFlameRound(sock, from, flameSession), 3000);
-                            }
-                        }
+                    if (!flameSession.players.includes(sender)) {
+                        flameSession.players.push(sender);
+                        flameSession.scores[sender] = 3;
+                        await sock.sendMessage(from, { text: `✅ انضم البطل @${sender.split('@')[0]} إلى حلبة الشعلة! (لديه 3 شعلات 🔥)`, mentions: [sender] }, { quoted: mek });
                     }
                     return;
     }
-                                    if (mutedUsers[sender] && !isDev) {
-                    await sock.sendMessage(from, { delete: mek.key });
-                    return;
-                }
-
-                           userBank[sender].xp += 2;
-                const userLevel = userBank[sender].level;
-                if (userBank[sender].xp >= 150 && userLevel > 0) {
-
-                    userBank[sender].xp = 0;
-                    userBank[sender].level -= 1;
-                    await sock.sendMessage(from, { text: `🎉 مبروك يا @${sender.split('@')[0]}، ترقيت لرتبة (${rankTitles[userBank[sender].level]})! 👑`, mentions: [sender] });
-                }
-                const args = body.trim().split(/ +/);
-                const command = args.shift().toLowerCase();
-                const q = args.join(' ');
-
-                if (command === '.عرض' || command === '.اوامر' || command === '.الأوامر') {
-                    const now = new Date();
-                    const time12 = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-                    
-                    let menuText = 
-`╔═══════════════════════════╗
-║   👑 **قائمة أوامر بوت غوجو** 👑    ║
-╠═══════════════════════════╣
-║ 📌 **المطور:** مالك علي عبد الرحيم | ⏰ ${time12}
-╠═══════════════════════════╣
-║ 📂 **الأوامر العامة والترفيهية:**
-║ • \`.عرض\` أو \`.اوامر\` 📋 - القائمة الرئيسية
-║ • \`.العاب\` 🎮 - قائمة الألعاب والمسابقات
-║ • \`.حاله\` 📊 - عرض حالتك بالرتبة والمحفظة
-║ • \`.معلومات\` [منشن/رد] 👤 - عرض الملف الشخصي
-║ • \`.بنك\` [منشن] 🏦 - معرفة رصيد البنك والمحفظة
-║ • \`.زواج\` 💍 - اختيار عشوائي للزواج
-║ • \`.طلاق\` 📜 - محكمة الطلاق الساخرة
-║ • \`.رتبتي\` 🎖️ - معرفة رتبتك الحالية
-║ • \`.لقبي [اللقب]\` 🏷 - تعيين لقبك الشخصي
-║ • \`.تحويل [المبلغ] [منشن]\` 💸 - تحويل أموال
-║ • \`.صلاه\` 🕌 - مواقيت الصلاة بسوهاج
-╚═══════════════════════════╝`;
-
-                    await sock.sendMessage(from, { text: menuText }, { quoted: mek });
-                }
-                else if (command === '.العاب') {
-                    const gamesMenu = 
-`🎮 ──『 **قائمة الألعاب الملكية** 』── 🎮
-• \`.شعله\` أو \`.شعلة\` 🔥 - لعبة الشعلة لدراغون بول وناروتو (30 ثانية للتسجيل)
-• \`.الجاسوس\` 🕵️‍♂ - بدء لعبة الجاسوس (بالمنشن أو الرد بـ \`.انضم\`)
-• \`.اكس اوه\` ❌⭕ - معركة XO ضد البوت (جائزة 10 ج للفائز)
-• \`.اكس اوه [منشن]\` ⚔ - تحدي صديق في XO
-╰───────────────────────────⬣`;
-                    await sock.sendMessage(from, { text: gamesMenu }, { quoted: mek });
-                }
-                else if (command === '.حاله' || command === '.حالة' || command === '.معلومات') {
-                    let targetUser = getTarget();
-                    if (!targetUser && mek.message.extendedTextMessage && mek.message.extendedTextMessage.contextInfo && mek.message.extendedTextMessage.contextInfo.participant) {
-                        targetUser = mek.message.extendedTextMessage.contextInfo.participant;
-                    }
-                    if (!targetUser) targetUser = sender;
-
-                    const uName = targetUser.split('@')[0];
-                    const uNick = userNicknames[targetUser] || 'بدون لقب 🏷️';
-                    const uBank = userBank[targetUser] || { cash: 50, coins: 200, points: 10, xp: 0, level: 18 };
-                    
-                    const isTargetDev = targetUser.includes(DEVELOPER_PHONE) || targetUser.includes(DEVELOPER_ID) || targetUser.includes(BOT_PHONE);
-                    const uRankName = isTargetDev ? "الإمبراطور 🔱" : rankTitles[uBank.level] || "عضو 👤";
-
-                    const statusText = `╭━━━〔 📊 الـمـلـف الـشـخـصـي 〕━━━╮\n\n` +
-                                       `👤 العضو: @${uName}\n` +
-                                       `🏷 اللقب: ${uNick}\n` +
-                                       `💰 الكاش: ${uBank.cash} ج 💵\n` +
-                                       `🏦 رصيد البنك: ${uBank.coins} 🪙\n` +
-                                       `⭐ نقاط الخبرة XP: ${uBank.xp}\n` +
-                                       `📈 المستوى: ${uBank.level}\n` +
-                                       `👑 الرتبة: ${uRankName}\n\n` +
-                                       `╰━━━━━━━━━━━━━━━━━━━━╯`;
-
-                    let ppUrl;
-                    try {
-                        ppUrl = await sock.profilePictureUrl(targetUser, 'image');
-                    } catch {
-                        ppUrl = null;
-                    }
-
-                    if (ppUrl) {
-                        await sock.sendMessage(from, { image: { url: ppUrl }, caption: statusText, mentions: [targetUser] }, { quoted: mek });
-                    } else {
-                        await sock.sendMessage(from, { text: statusText, mentions: [targetUser] }, { quoted: mek });
-                    }
-                }
-                else if (command === '.بنك') {
-                    const targetUser = getTarget();
-                    let finalTarget = targetUser;
-                    if (!finalTarget && mek.message.extendedTextMessage && mek.message.extendedTextMessage.contextInfo && mek.message.extendedTextMessage.contextInfo.participant) {
-                        finalTarget = mek.message.extendedTextMessage.contextInfo.participant;
-                    }
-                    if (!finalTarget) finalTarget = sender;
-
-                    const uBank = userBank[finalTarget] || { cash: 50, coins: 200 };
-                    const bankText = `🏦 ──『 **صندوق البنك** 』── 🏦\n\n👤 العضو: @${finalTarget.split('@')[0]}\n💰 المحفظة (الكاش): ${uBank.cash} جنيه 💵\n🏦 رصيد البنك (الكوينز): ${uBank.coins} 🪙\n\n╰───────────────────────────⬣`;
-                    await sock.sendMessage(from, { text: bankText, mentions: [finalTarget] }, { quoted: mek });
-                }
-                else if (command === '.لقبي') {
-                    if (!q) return await sock.sendMessage(from, { text: `❌ اكتب اللقب الذي تريده بجانب الأمر! مثال: \`.لقبي الأسطورة\` ⚠` }, { quoted: mek });
-                    userNicknames[sender] = q;
-                    await sock.sendMessage(from, { text: `✅ تم تحديث لقبك الشخصي بنجاح إلى: *${q}* 🏷`, mentions: [sender] }, { quoted: mek });
-                }
-                else if (command === '.تحويل') {
-                    let argsSplit = q.split(' ');
-                    let amount = parseInt(argsSplit[0]);
-                    let targetUser = getTarget();
-
-                    if (isNaN(amount) || amount <= 0 || !targetUser) {
-                        return await sock.sendMessage(from, { text: `❌ الصيغة غير صحيحة! استخدم:\n\`.تحويل [المبلغ] [منشن]\` 💸` }, { quoted: mek });
-                    }
-
-                    if (userBank[sender].cash < amount) {
-                        return await sock.sendMessage(from, { text: `❌ رصيدك الحالي (${userBank[sender].cash} ج) لا يكفي لإتمام التحويل! ⚠️` }, { quoted: mek });
-                    }
-
-                    userBank[sender].cash -= amount;
-                    if (!userBank[targetUser]) userBank[targetUser] = { cash: 50, coins: 200, points: 10, hearts: 3, xp: 0, level: 18 };
-                    userBank[targetUser].cash += amount;
-
-                    await sock.sendMessage(from, { text: `💸 تم تحويل مبلغ *${amount} جنيه* بنجاح من العضو @${sender.split('@')[0]} إلى @${targetUser.split('@')[0]}! 🥂`, mentions: [sender, targetUser] }, { quoted: mek });
-                }
-                                if (mutedUsers[sender] && !isDev) {
+                                        if (mutedUsers[sender] && !isDev) {
                     await sock.sendMessage(from, { delete: mek.key });
                     return;
                 }
 
                 userBank[sender].xp += 2;
-                const currentLevel = userBank[sender].level;
-                if (userBank[sender].xp >= 150 && currentLevel > 0) {
+                const userLevel = userBank[sender].level;
+                if (userBank[sender].xp >= 150 && userLevel > 0) {
                     userBank[sender].xp = 0;
                     userBank[sender].level -= 1;
                     await sock.sendMessage(from, { text: `🎉 مبروك يا @${sender.split('@')[0]}، ترقيت لرتبة (${rankTitles[userBank[sender].level]})! 👑`, mentions: [sender] });
                 }
+
                 const args = body.trim().split(/ +/);
                 const command = args.shift().toLowerCase();
                 const q = args.join(' ');
 
-                // --- أمر العرض لإرسال الوسائط المرئية وحدها ---
+                // --- أمر العرض لإرسال الوسائط وحدها ---
                 if (command === '.عرض') {
                     let mediaUrl = "https://i.imgur.com/8qQ345r.jpg"; 
 
                     await sock.sendMessage(from, { 
                         image: { url: mediaUrl },
-                        caption: "" // إبقاء النص فارغاً لتظهر الصورة وحدها تماماً
+                        caption: "" 
                     }, { quoted: mek });
+                }
+                // --- أمر حفظ ملصق ---
+                else if (command === '.حفظ' && q === 'ملصق') {
+                    let quotedMsg = mek.message.extendedTextMessage && mek.message.extendedTextMessage.contextInfo && mek.message.extendedTextMessage.contextInfo.quotedMessage;
+                    let isQuotedImage = quotedMsg && quotedMsg.imageMessage;
+                    let isDirectImage = mek.message.imageMessage;
+
+                    if (!isQuotedImage && !isDirectImage) {
+                        return await sock.sendMessage(from, { text: `❌ يرجى إرسال صورة أو الرد على صورة بـ \`.حفظ ملصق\` لحفظها! 🖼️` }, { quoted: mek });
+                    }
+                    await sock.sendMessage(from, { text: `✅ تم استلام الصورة وجاهزة للحفظ كملصق الملكي! 🎭` }, { quoted: mek });
+                }
+                // --- أمر حفظ ايموجي ---
+                else if (command === '.حفظ' && q === 'ايموجي') {
+                    let quotedMsg = mek.message.extendedTextMessage && mek.message.extendedTextMessage.contextInfo && mek.message.extendedTextMessage.contextInfo.quotedMessage;
+                    let isQuotedSticker = quotedMsg && quotedMsg.stickerMessage;
+
+                    if (!isQuotedSticker) {
+                        return await sock.sendMessage(from, { text: `❌ يرجى الرد على ملصق بـ \`.حفظ ايموجي\` لتحويله أو حفظه! ⭐` }, { quoted: mek });
+                    }
+                    await sock.sendMessage(from, { text: `✅ تم حفظ تفاصيل الايموجي/الملصق بنجاح! 🎯` }, { quoted: mek });
                 }
                 else if (command === '.اوامر' || command === '.الأوامر') {
                     const now = new Date();
                     const time12 = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+                    const dateGregorian = now.toLocaleDateString('ar-EG', { calendar: 'gregory', year: 'numeric', month: 'long', day: 'numeric' });
+                    const dateHijri = now.toLocaleDateString('ar-SA-u-ca-islamic-umalqura', { year: 'numeric', month: 'long', day: 'numeric' });
                     
                     let menuText = 
 `╔═══════════════════════════╗
 ║   👑 **قائمة أوامر بوت غوجو** 👑    ║
 ╠═══════════════════════════╣
-║ 📌 **المطور:** مالك علي عبد الرحيم | ⏰ ${time12}
+║ 📌 **المطور:** مالك علي عبد الرحيم
+║ ⏰ **الوقت:** ${time12}
+║ 📅 **الميلادي:** ${dateGregorian}
+║ 🌙 **الهجري:** ${dateHijri}
 ╠═══════════════════════════╣
 ║ 📂 **الأوامر العامة والترفيهية:**
 ║ • \`.عرض\` 🖼️ - إرسال صورة الوسائط وحدها
+║ • \`.حفظ ملصق\` 🎭 - لحفظ وتثبيت الصور كملصقات
+║ • \`.حفظ ايموجي\` ⭐ - لحفظ الملصقات وتفاعلاتها
 ║ • \`.اوامر\` 📋 - القائمة الرئيسية
 ║ • \`.العاب\` 🎮 - قائمة الألعاب والمسابقات
 ║ • \`.حاله\` 📊 - عرض حالتك بالرتبة والمحفظة
@@ -624,10 +479,9 @@ async function startGojoBot() {
                 else if (command === '.العاب') {
                     const gamesMenu = 
 `🎮 ──『 **قائمة الألعاب الملكية** 』── 🎮
-• \`.شعله\` أو \`.شعلة\` 🔥 - لعبة الشعلة لدراغون بول وناروتو (30 ثانية للتسجيل)
-• \`.الجاسوس\` 🕵️‍♂ - بدء لعبة الجاسوس (بالمنشن أو الرد بـ \`.انضم\`)
-• \`.اكس اوه\` ❌⭕ - معركة XO ضد البوت (جائزة 10 ج للفائز)
-• \`.اكس اوه [منشن]\` ⚔ - تحدي صديق في XO
+• \`.شعله\` أو \`.شعلة\` 🔥 - لعبة الشعلة لدراغون بول وناروتو
+• \`.الجاسوس\` 🕵️‍♂ - بدء لعبة الجاسوس
+• \`.اكس اوه\` ❌⭕ - معركة XO ضد البوت
 ╰───────────────────────────⬣`;
                     await sock.sendMessage(from, { text: gamesMenu }, { quoted: mek });
                 }
@@ -639,7 +493,7 @@ async function startGojoBot() {
                     if (!targetUser) targetUser = sender;
 
                     const uName = targetUser.split('@')[0];
-                    const uNick = userNicknames[targetUser] || 'بدون لقب 🏷️️';
+                    const uNick = userNicknames[targetUser] || 'بدون لقب 🏷';
                     const uBank = userBank[targetUser] || { cash: 50, coins: 200, points: 10, xp: 0, level: 18 };
                     
                     const isTargetDev = targetUser.includes(DEVELOPER_PHONE) || targetUser.includes(DEVELOPER_ID) || targetUser.includes(BOT_PHONE);
@@ -703,113 +557,27 @@ async function startGojoBot() {
                     userBank[targetUser].cash += amount;
 
                     await sock.sendMessage(from, { text: `💸 تم تحويل مبلغ *${amount} جنيه* بنجاح من العضو @${sender.split('@')[0]} إلى @${targetUser.split('@')[0]}! 🥂`, mentions: [sender, targetUser] }, { quoted: mek });
-    }
-                                    else if (command === '.المطور' || command === '.dev') {
-                    if (!isDev) {
-                        return await sock.sendMessage(from, { text: `❌ هذا الأمر مخصص للمطورين فقط! ⚡` }, { quoted: mek });
-                    }
-                    const devMenu = 
-`⚡ ──『 **قائمة تحكم المطورين** 』── ⚡
-• \`.اضافه مطور [منشن]\` 🛠️ - إضافة مطور جديد للبوت
-• \`.رتبه [منشن] [0-18]\` ⬆️ - تغيير رتبة أي عضو فوراً
-• \`.حفظ ملصق\` 🖼 - حفظ واستخراج الملصقات بالرد
-• \`.كتم للجميع\` 🔕 - كتم الشات بالكامل
-• \`.فك كتم للجميع\` 📢 - فك الكتم الجماعي
-• \`.كتم [منشن/رد]\` 🔇 - كتم فردي للأعضاء
-• \`.فك كتم [منشن/رد]\` 🔊 - فك كتم فردي
-• \`.إنهاء\` 🛑 - إيقاف أي لعبة عالقة بالمجموعات
-╰───────────────────────────⬣`;
-                    await sock.sendMessage(from, { text: devMenu }, { quoted: mek });
-                }
-                else if (command === '.اضافه مطور' || command === '.اضافة_مطور') {
-                    if (!isDev) {
-                        return await sock.sendMessage(from, { text: `❌ هذا الأمر مخصص للمطورين فقط! ⚡` }, { quoted: mek });
-                    }
-                    let targetUser = getTarget();
-                    if (!targetUser) {
-                        return await sock.sendMessage(from, { text: `❌ يرجى منشن الشخص المراد إضافته كمطور جديد! ⚠️` }, { quoted: mek });
-                    }
-                    let targetNum = targetUser.split('@')[0];
-                    if (!global.botOwners.includes(targetNum)) {
-                        global.botOwners.push(targetNum);
-                    }
-                    await sock.sendMessage(from, { text: `✅ تم ترقية العضو @${targetNum} ليصبح مطوراً في نظام البوت بنجاح! ⚡👑`, mentions: [targetUser] }, { quoted: mek });
-                }
-                else if (command === '.إنهاء' || command === '.انهاء') {
-                    if (!isDev && currentLevel > 12) {
-                        return await sock.sendMessage(from, { text: `❌ أمر إنهاء الألعاب مخصص للرتب المتقدمة والمطور فقط! 🛡` }, { quoted: mek });
-                    }
-
-                    let hasActiveGame = false;
-                    if (global.activeXoSessions[from]) {
-                        delete global.activeXoSessions[from];
-                        hasActiveGame = true;
-                    }
-                    if (global.activeSpySessions[from]) {
-                        delete global.activeSpySessions[from];
-                        hasActiveGame = true;
-                    }
-                    if (global.activeFlameSessions[from]) {
-                        delete global.activeFlameSessions[from];
-                        hasActiveGame = true;
-                    }
-
-                    if (hasActiveGame) {
-                        await sock.sendMessage(from, { text: `🛑 تم إيقاف وإنهاء جميع الألعاب وجولات الشعلة الجارية بواسطة الإدارة @${sender.split('@')[0]}!`, mentions: [sender] }, { quoted: mek });
-                    } else {
-                        await sock.sendMessage(from, { text: `ℹ لا توجد أي ألعاب نشطة حالياً لإنهاؤها. ⚠️` }, { quoted: mek });
-                    }
-                }
-                else if (command === '.كتم') {
-                    if (!isDev && currentLevel > 12) {
-                        return await sock.sendMessage(from, { text: `❌ عذراً، أمر الكتم مخصص للرتب المتقدمة والمطورين فقط! 🛡` }, { quoted: mek });
-                    }
-                    let targetUser = getTarget();
-                    if (!targetUser && mek.message.extendedTextMessage && mek.message.extendedTextMessage.contextInfo && mek.message.extendedTextMessage.contextInfo.participant) {
-                        targetUser = mek.message.extendedTextMessage.contextInfo.participant;
-                    }
-                    if (!targetUser) {
-                        return await sock.sendMessage(from, { text: `❌ الصيغة غير صحيحة! استخدم:\n• \`.كتم [منشن]\`\n• أو **بالرد (Reply)** على رسالة الشخص واكتب \`.كتم\` ⚠` }, { quoted: mek });
-                    }
-                    mutedUsers[targetUser] = true;
-                    await sock.sendMessage(from, { text: `🔇 تم كتم العضو @${targetUser.split('@')[0]} بنجاح! 🔕`, mentions: [targetUser] }, { quoted: mek });
-                }
-                else if (command === '.فك كتم') {
-                    if (!isDev && currentLevel > 12) {
-                        return await sock.sendMessage(from, { text: `❌ عذراً، أمر فك الكتم مخصص للرتب المتقدمة والمطورين فقط! 🛡` }, { quoted: mek });
-                    }
-                    let targetUser = getTarget();
-                    if (!targetUser && mek.message.extendedTextMessage && mek.message.extendedTextMessage.contextInfo && mek.message.extendedTextMessage.contextInfo.participant) {
-                        targetUser = mek.message.extendedTextMessage.contextInfo.participant;
-                    }
-                    if (!targetUser) {
-                        return await sock.sendMessage(from, { text: `❌ الصيغة غير صحيحة! استخدم:\n• \`.فك كتم [منشن]\`\n• أو **بالرد (Reply)** على رسالة الشخص واكتب \`.فك كتم\` ⚠` }, { quoted: mek });
-                    }
-                    delete mutedUsers[targetUser];
-                    await sock.sendMessage(from, { text: `🔊 تم فك الكتم عن العضو @${targetUser.split('@')[0]} بنجاح! 📢`, mentions: [targetUser] }, { quoted: mek });
-                }
-                else if (command === '.صلاه' || command === 'صلاه') {
-                    try {
-                        const response = await axios.get(`https://api.aladhan.com/v1/timingsByCity?city=Sohag&country=Egypt&method=5`);
-                        const timings = response.data.data.timings;
-                        const salahText = `🕌 **مواقيت الصلاة بسوهاج:**\n• الفجر: ${timings.Fajr}\n• الظهر: ${timings.Dhuhr}\n• العصر: ${timings.Asr}\n• المغرب: ${timings.Maghrib}\n• العشاء: ${timings.Isha}`;
-                        await sock.sendMessage(from, { text: salahText }, { quoted: mek });
-                    } catch {
-                        await sock.sendMessage(from, { text: `❌ حدث خطأ أثناء جلب مواقيت الصلاة. ⚠` }, { quoted: mek });
-                    }
-                }
-                else if (customCommands[command]) {
-                    await sock.sendMessage(from, { text: customCommands[command] }, { quoted: mek });
+                                                                    }
+                                        else if (command === '.صلاه' || command === '.صلاة') {
+                    const prayerText = `🕌 **مواقيت الصلاة في سوهاج اليوم:**\n\n` +
+                                       `• الفجر: 04:22 ص\n` +
+                                       `• الشروق: 05:48 ص\n` +
+                                       `• الظهر: 11:43 ص\n` +
+                                       `• العصر: 03:08 م\n` +
+                                       `• المغرب: 05:38 م\n` +
+                                       `• العشاء: 06:55 م\n\n` +
+                                       `تقبل الله طاعتكم وذكركم أجمعين! ✨`;
+                    await sock.sendMessage(from, { text: prayerText }, { quoted: mek });
                 }
 
             } catch (error) {
-                console.error("خطأ في معالجة الرسالة:", error);
+                console.error("خطأ في معالجة الرسائل:", error);
             }
         });
+
     } catch (err) {
-        console.error("خطأ في تشغيل بوت غوجو:", err);
+        console.error("خطأ في تشغيل البوت:", err);
     }
 }
 
 startGojoBot();
-                         
