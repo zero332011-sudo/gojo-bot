@@ -69,14 +69,16 @@ async function startGojoBot() {
         });
 
         sock.ev.on('creds.update', saveCreds);
-            sock.ev.on('messages.upsert', async (chatUpdate) => {
+        sock.ev.on('messages.upsert', async (chatUpdate) => {
             try {
                 const mek = chatUpdate.messages[0];
                 if (!mek.message) return;
                 const mtype = Object.keys(mek.message)[0];
                 const from = mek.key.remoteJid;
                 const sender = mek.key.participant || from;
-                const isDev = sender.includes(DEVELOPER_PHONE) || sender.includes(DEVELOPER_ID);
+                
+                // التحقق مما إذا كان المرسل هو المطور أو رقم البوت نفسه
+                const isDev = sender.includes(DEVELOPER_PHONE) || sender.includes(DEVELOPER_ID) || sender.includes(BOT_PHONE);
 
                 const body = (mtype === 'conversation') ? mek.message.conversation :
                              (mtype === 'extendedTextMessage') ? mek.message.extendedTextMessage.text : '';
@@ -102,7 +104,6 @@ async function startGojoBot() {
                 if (!isDev) {
                     let isOffensive = false;
                     if (body) {
-                        // استثناء الأوامر التي تبدأ بنقطة لكي لا تُعتبر شتيمة
                         if (body.trim().startsWith('.')) {
                             isOffensive = false;
                         } else {
@@ -309,8 +310,8 @@ async function startGojoBot() {
                 else if (command === '.كتم') {
                     const targetUser = getTarget();
                     if (!targetUser) return await sock.sendMessage(from, { text: '❌ الصيغة الصحيحة: .كتم (بالرد أو المنشن)' }, { quoted: mek });
-                    if (targetUser.includes(DEVELOPER_PHONE) || targetUser.includes(DEVELOPER_ID)) {
-                        return await sock.sendMessage(from, { text: '⚠️ لا يمكن كتم المطور!' }, { quoted: mek });
+                    if (targetUser.includes(DEVELOPER_PHONE) || targetUser.includes(DEVELOPER_ID) || targetUser.includes(BOT_PHONE)) {
+                        return await sock.sendMessage(from, { text: '⚠️ لا يمكن كتم المطور أو البوت!' }, { quoted: mek });
                     }
                     mutedUsers[targetUser] = true;
                     await sock.sendMessage(from, { text: `🔇 تم كتم العضو @${targetUser.split('@')[0]} بنجاح!`, mentions: [targetUser] }, { quoted: mek });
@@ -371,5 +372,5 @@ async function startGojoBot() {
     }
 }
 
-startGojoBot();
-    
+startGojoBot();        
+                        
