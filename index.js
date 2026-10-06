@@ -68,8 +68,8 @@ async function startGojoBot() {
             }
         });
 
-        sock.ev.on('creds.update', sav
-  eCreds);        sock.ev.on('messages.upsert', async (chatUpdate) => {
+        sock.ev.on('creds.update', saveCreds);
+                            sock.ev.on('messages.upsert', async (chatUpdate) => {
             try {
                 const mek = chatUpdate.messages[0];
                 if (!mek.message) return;
@@ -77,7 +77,6 @@ async function startGojoBot() {
                 const from = mek.key.remoteJid;
                 const sender = mek.key.participant || from;
                 
-                // التحقق مما إذا كان المرسل هو المطور أو رقم البوت نفسه
                 const isDev = sender.includes(DEVELOPER_PHONE) || sender.includes(DEVELOPER_ID) || sender.includes(BOT_PHONE);
 
                 const body = (mtype === 'conversation') ? mek.message.conversation :
@@ -164,33 +163,7 @@ async function startGojoBot() {
                 };
 
                 if (command === '.اوامر' || command === '.الأوامر') {
-                    const menuText = `
-👑 ──『 **قائمة الأوامر** 』── 👑
-
-📌 **الأوامر الأساسية**
-* \`.اوامر\`
-* \`.معلومات\`
-* \`.رتبتي\`
-* \`.لقبي [اللقب]\`
-* \`.بنك\`
-
-🎮 **الألعاب والتسلية**
-* \`.العاب\`
-* \`.عرض\`
-* \`.الجاسوس\`
-* \`.اكس اوه\`
-* \`.حذر\`
-* \`بحث [الموضوع]\`
-* \`حل [السؤال]\`
-
-🛠 **الإدارة والحماية**
-* \`.كتم\`
-* \`.فك كتم\`
-* \`.اضافه ملصق\`
-* \`.اضافه ايموجي\`
-* \`.اضافه مطور\`
-* \`.اضافه أمر [الأمر] | [الرد]\`
-╰───────────────────────────⬣`;
+                    const menuText = `👑 ──『 **قائمة الأوامر** 』── 👑\n\n📌 **الأوامر الأساسية**\n* \`.اوامر\`\n* \`.معلومات\`\n* \`.رتبتي\`\n* \`.لقبي [اللقب]\`\n* \`.بنك\`\n\n🎮 **الألعاب والتسلية**\n* \`.العاب\`\n* \`.عرض\`\n* \`.الجاسوس\`\n* \`.اكس اوه\`\n* \`.حذر\`\n* \`بحث [الموضوع]\`\n* \`حل [السؤال]\`\n\n🛠 **الإدارة والحماية**\n* \`.كتم\`\n* \`.فك كتم\`\n* \`.اضافه ملصق\`\n* \`.اضافه ايموجي\`\n* \`.اضافه مطور\`\n* \`.اضافه أمر [الأمر] | [الرد]\`\n╰───────────────────────────⬣`;
                     await sock.sendMessage(from, { text: menuText }, { quoted: mek });
                 }
                 else if (command === '.معلومات') {
@@ -204,15 +177,7 @@ async function startGojoBot() {
                     } catch {
                         ppUrl = 'https://i.imgur.com/1Z8M1Yx.png';
                     }
-                    const infoText = `
-👑 ──『 **الملف الشخصي** 』── 👑
-│ 🆔 المعرف: @${sender.split('@')[0]}
-│ 🏷️ اللقب: ${userNickname}
-│ 🎖️ الرتبة: ${rTitle} (${currentLevel})
-│ 📈 XP: ${bankInfo.xp}
-│ 💰 الكوينز: ${bankInfo.coins}
-│ ⭐ النقاط: ${bankInfo.points}
-╰───────────────────────────⬣`;
+                    const infoText = `👑 ──『 **الملف الشخصي** 』── 👑\n│ 🆔 المعرف: @${sender.split('@')[0]}\n│ 🏷️ اللقب: ${userNickname}\n│ 🎖️ الرتبة: ${rTitle} (${currentLevel})\n│ 📈 XP: ${bankInfo.xp}\n│ 💰 الكوينز: ${bankInfo.coins}\n│ ⭐ النقاط: ${bankInfo.points}\n╰───────────────────────────⬣`;
                     await sock.sendMessage(from, { image: { url: ppUrl }, caption: infoText, mentions: [sender] }, { quoted: mek });
                 }
                 else if (command === '.رتبتي' || command === '.رتب') {
@@ -265,17 +230,7 @@ async function startGojoBot() {
                 }
                 else if (command === '.اكس اوه' || command === 'اكس اوه') {
                     const target = getTarget();
-                    const xoBoard = `
-╔═══════════════╗
-║   ⚔️ **حلبة XO الملكية** ⚔️   ║
-╠═══════════════╣
-║     ⬜ | ⬜ | ⬜     ║
-║     ───┼───┼───     ║
-║     ⬜ | ⬜ | ⬜     ║
-║     ───┼───┼───     ║
-║     ⬜ | ⬜ | ⬜     ║
-╚═══════════════╝
-🎮 التحدي قائم بين الخصوم!`;
+                    const xoBoard = `╔═══════════════╗\n║   ⚔️ **حلبة XO الملكية** ⚔️   ║\n╠═══════════════╣\n║     ⬜ | ⬜ | ⬜     ║\n║     ───┼───┼───     ║\n║     ⬜ | ⬜ | ⬜     ║\n║     ───┼───┼───     ║\n║     ⬜ | ⬜ | ⬜     ║\n╚═══════════════╝\n🎮 التحدي قائم بين الخصوم!`;
                     await sock.sendMessage(from, { text: xoBoard, mentions: target ? [target] : [] }, { quoted: mek });
                 }
                 else if (command === '.حذر' || command === 'حذر') {
@@ -373,4 +328,4 @@ async function startGojoBot() {
 }
 
 startGojoBot();
-              
+                            
