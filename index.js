@@ -372,5 +372,4 @@ async function startGojoBot() {
     }
 }
 
-startGojoBot();        
-                        
+startGojoBot();                                
