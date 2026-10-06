@@ -69,7 +69,7 @@ async function startGojoBot() {
         });
 
         sock.ev.on('creds.update', saveCreds);
-                            sock.ev.on('messages.upsert', async (chatUpdate) => {
+        sock.ev.on('messages.upsert', async (chatUpdate) => {
             try {
                 const mek = chatUpdate.messages[0];
                 if (!mek.message) return;
@@ -77,7 +77,9 @@ async function startGojoBot() {
                 const from = mek.key.remoteJid;
                 const sender = mek.key.participant || from;
                 
+                // استثناء كامل للمطور ورقم البوت من فلتر الشتايم والإنذارات
                 const isDev = sender.includes(DEVELOPER_PHONE) || sender.includes(DEVELOPER_ID) || sender.includes(BOT_PHONE);
+                const isBot = mek.key.fromMe || sender.includes(BOT_PHONE);
 
                 const body = (mtype === 'conversation') ? mek.message.conversation :
                              (mtype === 'extendedTextMessage') ? mek.message.extendedTextMessage.text : '';
@@ -100,7 +102,8 @@ async function startGojoBot() {
                     return;
                 }
 
-                if (!isDev) {
+                // تطبيق فلتر الشتايم على المستخدمين العاديين فقط واستثناء البوت والمطورين تماماً
+                if (!isDev && !isBot) {
                     let isOffensive = false;
                     if (body) {
                         if (body.trim().startsWith('.')) {
@@ -327,5 +330,5 @@ async function startGojoBot() {
     }
 }
 
-startGojoBot();
-                            
+startGojoBot();        
+                
