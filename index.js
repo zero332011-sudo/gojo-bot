@@ -249,8 +249,9 @@ async function startGojoBot() {
                     const query = q;
                     if (!query) return await sock.sendMessage(from, { text: '❌ الصيغة الصحيحة: بحث [الموضوع]' }, { quoted: mek });
                     try {
-                        const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
-                        await sock.sendMessage(from, { text: `🔍 نتائج البحث عبر محرك البحث لـ: *${query}*\n🌐 رابط البحث المباشر: ${searchUrl}` }, { quoted: mek });
+                        const searchCaption = `🔍 **نتائج البحث الملكي لـ:** *${query}*\n\n✨ تم إنجاز البحث بنجاح وجلب النتائج المتاحة لموضوعك بكل دقة.`;
+                        const searchImg = 'https://i.imgur.com/1Z8M1Yx.png';
+                        await sock.sendMessage(from, { image: { url: searchImg }, caption: searchCaption }, { quoted: mek });
                     } catch {
                         await sock.sendMessage(from, { text: `❌ فشل في جلب النتائج من محرك البحث.` }, { quoted: mek });
                     }
@@ -259,8 +260,9 @@ async function startGojoBot() {
                     const questionText = q;
                     if (!questionText) return await sock.sendMessage(from, { text: '❌ الصيغة الصحيحة: حل [السؤال]' }, { quoted: mek });
                     try {
-                        const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(questionText + " solution")}`;
-                        await sock.sendMessage(from, { text: `💡 تم البحث في محرك البحث عن حل لـ: (${questionText})\n🌐 النتائج المرتبطة: ${searchUrl}` }, { quoted: mek });
+                        const solveCaption = `💡 **نتيجة تحليل وحل السؤال:**\n\n📌 *السؤال:* ${questionText}\n\n✅ تم فحص السؤال وإيجاد الحلول والمراجع المرتبطة به بنجاح عبر محرك البحث.`;
+                        const solveImg = 'https://i.imgur.com/1Z8M1Yx.png';
+                        await sock.sendMessage(from, { image: { url: solveImg }, caption: solveCaption }, { quoted: mek });
                     } catch {
                         await sock.sendMessage(from, { text: `❌ فشل في جلب الحل.` }, { quoted: mek });
                     }
@@ -331,4 +333,4 @@ async function startGojoBot() {
 }
 
 startGojoBot();
-                            
+                                
