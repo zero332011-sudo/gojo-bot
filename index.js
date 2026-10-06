@@ -448,9 +448,10 @@ async function startGojoBot() {
                     return;
                 }
 
-                userBank[sender].xp += 2;
-                const currentLevel = userBank[sender].level;
-                if (userBank[sender].xp >= 150 && currentLevel > 0) {
+                           userBank[sender].xp += 2;
+                const userLevel = userBank[sender].level;
+                if (userBank[sender].xp >= 150 && userLevel > 0) {
+
                     userBank[sender].xp = 0;
                     userBank[sender].level -= 1;
                     await sock.sendMessage(from, { text: `🎉 مبروك يا @${sender.split('@')[0]}، ترقيت لرتبة (${rankTitles[userBank[sender].level]})! 👑`, mentions: [sender] });
