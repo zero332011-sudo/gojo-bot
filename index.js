@@ -39,7 +39,7 @@ async function startGojoBot() {
                 creds: state.creds,
                 keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'silent' })),
             },
-            browser: ["Chrome (Linux)", "Chrome", "20.0.04"]
+            browser: ["Ubuntu", "Chrome", "20.0.04"]
         });
 
         if (!sock.authState.creds.registered) {
@@ -52,9 +52,9 @@ async function startGojoBot() {
                     console.log(`[!] كود ربط بوت Gojo الخاص بك هو: \x1b[32m${code}\x1b[0m`);
                     console.log(`========================================\n`);
                 } catch (err) {
-                    console.error("خطأ أثناء طلب كود الربط، يرجى إعادة التشغيل:", err);
+                    console.error("خطأ أثناء طلب كود الربط:", err);
                 }
-            }, 5000);
+            }, 10000);
         }
 
         sock.ev.on('connection.update', async (update) => {
@@ -331,4 +331,4 @@ async function startGojoBot() {
 }
 
 startGojoBot();
-                                                   
+                            
