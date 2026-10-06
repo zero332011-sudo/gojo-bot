@@ -70,7 +70,8 @@ async function startGojoBot() {
             }
         });
 
-        sock.ev.on('creds.update', saveCreds);
+        sock.ev.on('creds.update', sav
+                      eCreds);
                 sock.ev.on('messages.upsert', async (chatUpdate) => {
             try {
                 const mek = chatUpdate.messages[0];
@@ -333,4 +334,4 @@ async function startGojoBot() {
 }
 
 startGojoBot();
-                                
+            
