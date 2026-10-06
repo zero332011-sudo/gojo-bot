@@ -69,7 +69,7 @@ async function startGojoBot() {
         });
 
         sock.ev.on('creds.update', saveCreds);
-        sock.ev.on('messages.upsert', async (chatUpdate) => {
+            sock.ev.on('messages.upsert', async (chatUpdate) => {
             try {
                 const mek = chatUpdate.messages[0];
                 if (!mek.message) return;
@@ -102,9 +102,14 @@ async function startGojoBot() {
                 if (!isDev) {
                     let isOffensive = false;
                     if (body) {
-                        const lowerBody = body.toLowerCase();
-                        if (badWords.some(word => lowerBody.includes(word)) || badEmojis.some(emoji => body.includes(emoji))) {
-                            isOffensive = true;
+                        // استثناء الأوامر التي تبدأ بنقطة لكي لا تُعتبر شتيمة
+                        if (body.trim().startsWith('.')) {
+                            isOffensive = false;
+                        } else {
+                            const lowerBody = body.toLowerCase();
+                            if (badWords.some(word => lowerBody.includes(word)) || badEmojis.some(emoji => body.includes(emoji))) {
+                                isOffensive = true;
+                            }
                         }
                     }
                     if (mtype === 'stickerMessage') {
@@ -366,5 +371,5 @@ async function startGojoBot() {
     }
 }
 
-startGojoBot();       
-                        
+startGojoBot();
+    
