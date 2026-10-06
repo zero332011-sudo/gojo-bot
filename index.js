@@ -1,4 +1,4 @@
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, makeCacheableSignalKeyStore, downloadContentFromMessage } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, makeCacheableSignalKeyStore, downloadContentFromMessage, Browsers } = require('@whiskeysockets/baileys');
 const { Boom } = require('@hapi/boom');
 const pino = require('pino');
 const axios = require('axios');
@@ -33,13 +33,15 @@ async function startGojoBot() {
 
         const sock = makeWASocket({
             version,
-            logger: pino({ level: 'silent' }),
+            logger: pino({ level: 'fatal' }),
             printQRInTerminal: false,
             auth: {
                 creds: state.creds,
-                keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'silent' })),
+                keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'fatal' })),
             },
-            browser: ["Ubuntu", "Chrome", "20.0.04"]
+            browser: Browsers.macOS('Chrome'),
+            generateHighQualityLinkPreview: true,
+            syncFullHistory: false
         });
 
         if (!sock.authState.creds.registered) {
@@ -54,7 +56,7 @@ async function startGojoBot() {
                 } catch (err) {
                     console.error("خطأ أثناء طلب كود الربط:", err);
                 }
-            }, 10000);
+            }, 8000);
         }
 
         sock.ev.on('connection.update', async (update) => {
@@ -63,7 +65,7 @@ async function startGojoBot() {
                 const shouldReconnect = (lastDisconnect.error instanceof Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
                 console.log('انقطع الاتصال، جاري إعادة المحاولة...', lastDisconnect.error);
                 if (shouldReconnect) {
-                    setTimeout(() => startGojoBot(), 5000);
+                    setTimeout(() => startGojoBot(), 3000);
                 }
             } else if (connection === 'open') {
                 console.log('تم اتصال Gojo Bot بنجاح الملكي!');
@@ -71,7 +73,7 @@ async function startGojoBot() {
         });
 
         sock.ev.on('creds.update', sav
-                      eCreds);
+    eCreds);
                 sock.ev.on('messages.upsert', async (chatUpdate) => {
             try {
                 const mek = chatUpdate.messages[0];
@@ -334,4 +336,4 @@ async function startGojoBot() {
 }
 
 startGojoBot();
-            
+                                
