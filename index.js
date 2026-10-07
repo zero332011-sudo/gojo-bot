@@ -80,8 +80,8 @@ async function startGojoBot() {
         sock.ev.on('creds.update', async () => {
             await saveCreds();
        
-        });
-              sock.ev.on('messages.upsert', async (chatUpdate) => {
+       });
+                sock.ev.on('messages.upsert', async (chatUpdate) => {
             try {
                 const mek = chatUpdate.messages[0];
                 if (!mek.message) return;
@@ -149,7 +149,7 @@ async function startGojoBot() {
                     }
                     return null;
                 };
-                let xoSession = global.activeXoSessions[from];
+                    let xoSession = global.activeXoSessions[from];
                 if (xoSession && xoSession.state === 'playing') {
                     let cellChoice = parseInt(body.trim());
                     if (!isNaN(cellChoice) && cellChoice >= 1 && cellChoice <= 9) {
@@ -237,7 +237,7 @@ async function startGojoBot() {
                     }
                 }
 
-                // لعبة خمن 🌚 (مع إرسال صورة مباشرة من الرابط)
+                // لعبة خمن 🌚
                 if (command === '.خمن') {
                     let flameImg = "https://i.imgur.com/3Z3q9uM.jpg";
                     let flameText = `╭━━━〔 🌚 لعبة خمن 🌚 〕━━━╮\n\n` +
@@ -248,17 +248,36 @@ async function startGojoBot() {
                                     `╰━━━━━━━━━━━━━━━━━━━━╯`;
                     await sock.sendMessage(from, { image: { url: flameImg }, caption: flameText, mentions: [sender] }, { quoted: mek });
                     return;
-                                                   }
-                                      if (command === '.انهاء') {
+                }
+                                if (command === '.انهاء') {
                     delete global.activeXoSessions[from];
                     delete global.activeFlameSessions[from];
                     await sock.sendMessage(from, { text: `🛑 تم إنهاء أي لعبة شغالة في المجموعة بنجاح!` }, { quoted: mek });
                     return;
                 }
 
-                // فحص الرتبة للأوامر العالية (رتبة 8 وأعلى أو المطور)
                 let userRankLevel = isDev ? 0 : (userBank[sender]?.level ?? 18);
                 let isHighRank = isDev || userRankLevel <= 7;
+
+                // أمر ترقية شخص رتبة جديدة مباشرة (.ترقية @منشن)
+                if (command === '.ترقية') {
+                    if (!isHighRank) {
+                        return await sock.sendMessage(from, { text: `❌ هذا الأمر مخصص للرتب العليا والمطورين فقط! 🛡️` }, { quoted: mek });
+                    }
+                    let tUser = getTarget();
+                    if (!tUser) {
+                        return await sock.sendMessage(from, { text: `⚠️ يرجى عمل منشن للشخص المراد ترقيته! مثال: \`.ترقية @شخص\`` }, { quoted: mek });
+                    }
+                    if (!userBank[tUser]) {
+                        userBank[tUser] = { cash: 50, coins: 200, points: 10, hearts: 3, xp: 0, level: 18 };
+                    }
+                    if (userBank[tUser].level > 0) {
+                        userBank[tUser].level -= 1;
+                    }
+                    let newRankTitle = rankTitles[userBank[tUser].level];
+                    await sock.sendMessage(from, { text: `🎉 مبروك! تم ترقية العضو @${tUser.split('@')[0]} بنجاح وأصبح الآن برتبة: *${newRankTitle}* 👑`, mentions: [tUser] }, { quoted: mek });
+                    return;
+                }
 
                 if (['.كتم', '.فك_كتم', '.زواج', '.طلاق'].includes(command)) {
                     if (!isHighRank) {
@@ -286,7 +305,6 @@ async function startGojoBot() {
                     return;
                 }
 
-                // قائمة المطور: إضافة مطور بالمنشن أو الرد أو المعرف تلقائياً
                 if (command === '.اضافة_مطور') {
                     if (!isDev) {
                         return await sock.sendMessage(from, { text: `❌ هذا الأمر خاص بالمطورين الأساسيين فقط! 👑` }, { quoted: mek });
@@ -301,17 +319,14 @@ async function startGojoBot() {
                     }
                     await sock.sendMessage(from, { text: `✅ تم ترقية العضو @${devNum} إلى رتبة مطور بوت غوجو الملكي بنجاح! 🚀`, mentions: [newDevTarget] }, { quoted: mek });
                     return;
-              
-                          }
-                              // أمر حالة النت وسرعة السيرفر وتشغيله (.بوت)
-                if (command === '.بوت') {
+               }
+                                if (command === '.بوت') {
                     const uptimeM = Math.floor((Date.now() - startTime) / 60000);
                     const pingMsg = `🤖 *حالة بوت غوجو الملكي*\n- الحالة: متصل وسحابي 24/7 🚀\n- سرعة الاستجابة: ممتازة (Stable - Railway)\n- مدة التشغيل: ${uptimeM} دقيقة\n- الإنترنت والاتصال: مستقر تماماً على السيرفر سحابياً ✅`;
                     await sock.sendMessage(from, { text: pingMsg }, { quoted: mek });
                     return;
                 }
 
-                // أمر .بوينت المخفي تماماً عن القائمة الرئيسية لمعرفة النقاط والمال
                 if (command === '.بوينت') {
                     let uPts = userBank[sender]?.points || 10;
                     let uCash = userBank[sender]?.cash || 50;
@@ -319,13 +334,20 @@ async function startGojoBot() {
                     return;
                 }
 
-                // منشن الكل برسال واحدة أو 10 رسائل تنبيه لشخص معين
+                // أمر منشن الكل الحقيقي لجميع أعضاء الجروب
                 if (command === '.منشن') {
-                    if (q.startsWith('الكل')) {
+                    if (q.startsWith('الكل') || body.toLowerCase().includes('منشن الكل')) {
                         let groupMetadata = await sock.groupMetadata(from).catch(() => null);
                         if (!groupMetadata) return;
                         let participants = groupMetadata.participants.map(p => p.id);
-                        let mentionText = `📢 *تنبيه عام لكل الأبطال في الجروب:*\n${q.replace('الكل', '').trim() || 'مطلوبين ضروري هنا! ⚡'}`;
+                        
+                        let customText = q.replace('الكل', '').trim();
+                        let mentionText = `📢 *تنبيه عام لكل الأبطال في الجروب:*\n${customText || 'مطلوبين ضروري هنا! ⚡'}\n\n`;
+                        
+                        participants.forEach(p => {
+                            mentionText += `@${p.split('@')[0]} `;
+                        });
+
                         await sock.sendMessage(from, { text: mentionText, mentions: participants }, { quoted: mek });
                     } else {
                         let targetUser = getTarget();
@@ -338,7 +360,6 @@ async function startGojoBot() {
                     return;
                 }
 
-                // أمر معلومات الكل
                 if (command === 'معلومات_الكل' || command === '.معلومات_الكل') {
                     let groupMetadata = await sock.groupMetadata(from).catch(() => null);
                     if (!groupMetadata) return;
@@ -347,7 +368,7 @@ async function startGojoBot() {
                     await sock.sendMessage(from, { text: infoHeader }, { quoted: mek });
                     return;
                 }
-                              // أمر عرض قائمة الرتب وتوزيع الأعضاء فيها بدقة
+                                // أمر عرض قائمة الرتب وتوزيع الأعضاء فيها بدقة
                 if (command === '.رتب') {
                     let rankDisplayList = `👑 ──『 **قائمة الرتب والأعضاء** 』── 👑\n\n`;
                     let categorizedRanks = {};
@@ -432,10 +453,10 @@ async function startGojoBot() {
 ║ • \`.عرض\` 🖼️ - إرسال صورة الوسائط وحدها
 ║ • \`.حفظ ملصق\` 🎭 - حفظ الملصقات المسيئة والمميزة
 ║ • \`.حفظ ايموجي\` ⭐ - حفظ الإيموجي المسيء
-║ • \`.منشن الكل\` 📢 - منشن جماعي برسالة واحدة
+║ • \`.منشن الكل\` 📢 - منشن جماعي حقيقي لكل الأعضاء
 ║ • \`.اوامر\` 📋 - القائمة الرئيسية والوقت
 ║ • \`.العاب\` 🎮 - قسم الألعاب والمسابقات
-║ • \`.رتب\` 🎖️ - عرض قائمة الرتب والأعضاء في كل رتبة
+║ • \`.رتب\` 🎖️ - عرض قائمة الرتب وتوزيع الأعضاء
 ║ 
 ║ 👤 **الملف الشخصي والحسابات:**
 ║ • \`.حاله\` / \`.معلومات\` 📊 - عرض حالتك ورتبتك وصورتك
@@ -445,6 +466,7 @@ async function startGojoBot() {
 ║ • \`.تحويل [المبلغ] [منشن]\` 💸 - تحويل الأموال
 ║ 
 ║ 🛡️ **أوامر الرتب العليا (8 فأعلى):**
+║ • \`.ترقية [@منشن]\` 🎖️ - ترقية العضو رتبة أعلى فوراً
 ║ • \`.كتم\` / \`.فك_كتم\` 🔇 - كتم وفك كتم الأعضاء
 ║ • \`.زواج\` / \`.طلاق\` 💍 - نظام الزواج والطلاق
 ║ 
@@ -546,3 +568,4 @@ async function startGojoBot() {
 }
 
 startGojoBot();
+                        
