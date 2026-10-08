@@ -42,7 +42,7 @@ const rankTitles = [
     "الجنرال ⚡", "نائب الجنرال ⚔", "الدوق 👑", "نائب الدوق 🏰", 
     "الأدميرال 🚢", "نائب الأدميرال ⚓", "العميد 🎖️", "التشيبوكاي 🏴‍☠️", 
     "مشرف 👮‍♂️", "مشرف متدرب 📘", "الفارس 🐎", "الملازم 🛡️", 
-    "حامل البريق ✨", "حامل الراية 🚩", "عضو👤"
+    "حامل البريق ✨", "حامل الراية 🚩", "عضو 👤"
 ];
 async function startGojoBot() {
     try {
@@ -94,8 +94,8 @@ async function startGojoBot() {
         sock.ev.on('creds.update', async () => {
             await saveCreds();
        
-              });
-              sock.ev.on('messages.upsert', async (chatUpdate) => {
+});
+                sock.ev.on('messages.upsert', async (chatUpdate) => {
             try {
                 const mek = chatUpdate.messages[0];
                 if (!mek.message) return;
@@ -168,7 +168,8 @@ async function startGojoBot() {
                     }
                     return null;
                 };
-                              if (command === '.اكس' || command === '.اكس_او' || command === '.اكس اوه' || command === '.xo') {
+
+                        if (command === '.اكس' || command === '.اكس_او' || command === '.اكس اوه' || command === '.xo') {
                     let opponent = getTarget();
                     let isVsBot = !opponent || opponent === sender;
                     let playersList = isVsBot ? [sender] : [sender, opponent];
@@ -293,7 +294,18 @@ async function startGojoBot() {
                                     `لديك **30 ثانية** لتخمين الشخصية وكتابة اسمها الصحيح (بدون مسافات) لكسب **20 جنيه و 15 نقطة**! 🏆\n\n` +
                                     `يلا ابدأوا التخمين في الشات الآن 🌝⚡\n` +
                                     `╰━━━━━━━━━━━━━━━━━━━━╯`;
-                    await sock.sendMessage(from, { text: guessText, mentions: [sender] }, { quoted: mek });
+
+                    let imagePath = path.join(__dirname, 'characters', `${randomChar}.jpg`);
+                    if (!fs.existsSync(imagePath)) {
+                        imagePath = path.join(__dirname, 'characters', `${randomChar}.png`);
+                    }
+
+                    if (fs.existsSync(imagePath)) {
+                        let imgBuffer = fs.readFileSync(imagePath);
+                        await sock.sendMessage(from, { image: imgBuffer, caption: guessText, mentions: [sender] }, { quoted: mek });
+                    } else {
+                        await sock.sendMessage(from, { text: guessText, mentions: [sender] }, { quoted: mek });
+                    }
 
                     setTimeout(async () => {
                         if (global.activeGuessGames[from] && !global.activeGuessGames[from].winner) {
@@ -369,8 +381,8 @@ async function startGojoBot() {
                                       `📜 كل واحد في طريق ربنا يوفقه! 🚶‍♂️💨`;
                     await sock.sendMessage(from, { text: divorceText, mentions: [ex1, ex2] }, { quoted: mek });
                     return;
-                        }
-                                                       if (command === '.الجاسوس' || command === '.جاسوس') {
+                                                          }
+                                            if (command === '.الجاسوس' || command === '.جاسوس') {
                     let groupMetadata = await sock.groupMetadata(from).catch(() => null);
                     if (!groupMetadata) {
                         return await sock.sendMessage(from, { text: `❌ لعبة الجاسوس تعمل داخل المجموعات فقط!` }, { quoted: mek });
@@ -477,8 +489,8 @@ async function startGojoBot() {
                     }
                     await sock.sendMessage(from, { text: `✅ تم ترقية العضو @${devNum} إلى رتبة مطور بوت غوجو الملكي بنجاح! 🚀`, mentions: [newDevTarget] }, { quoted: mek });
                     return;
-                                                             }                
-                                        if (command === '.بوت') {
+                            }
+                                if (command === '.بوت') {
                     const uptimeM = Math.floor((Date.now() - startTime) / 60000);
                     const pingMsg = `🤖 *حالة بوت غوجو الملكي*\n- الحالة: متصل وسحابي 24/7 🚀\n- سرعة الاستجابة: ممتازة (Stable - Railway)\n- مدة التشغيل: ${uptimeM} دقيقة\n- الإنترنت والاتصال: مستقر تماماً على السيرفر سحابياً ✅`;
                     await sock.sendMessage(from, { text: pingMsg }, { quoted: mek });
@@ -611,8 +623,8 @@ async function startGojoBot() {
                     userBank[sender].xp = 0;
                     userBank[sender].level -= 1;
                     await sock.sendMessage(from, { text: `🎉 مبروك يا @${sender.split('@')[0]}، ترقيت لرتبة (${rankTitles[userBank[sender].level]})! 👑`, mentions: [sender] });
-}
-                                        else if (command === '.حفظ' && q === 'ملصق') {
+                }
+                                    else if (command === '.حفظ' && q === 'ملصق') {
                     let quotedMsg = mek.message.extendedTextMessage && mek.message.extendedTextMessage.contextInfo && mek.message.extendedTextMessage.contextInfo.quotedMessage;
                     let isQuotedImage = quotedMsg && quotedMsg.imageMessage;
                     let isDirectImage = mek.message.imageMessage;
@@ -768,4 +780,4 @@ async function startGojoBot() {
 }
 
 startGojoBot();
-                      
+    
